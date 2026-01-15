@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Gestor de Finanzas</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+
+<body class="bg-gradient-to-br from-blue-900 to-gray-900 min-h-screen text-white p-6">
+
+<div class="max-w-4xl mx-auto bg-gray-800 rounded-xl shadow-xl p-6">
+
+<h1 class="text-3xl font-bold text-center mb-6">💰 Gestor de Finanzas Personales</h1>
+
+<!-- Balance -->
+<div class="grid grid-cols-2 gap-4 text-center mb-6">
+<div class="bg-green-600 p-4 rounded">
+<p>Pesos (ARS)</p>
+<p class="text-2xl" id="ars">$0</p>
+</div>
+<div class="bg-blue-600 p-4 rounded">
+<p>Dólares (USD)</p>
+<p class="text-2xl" id="usd">U$S 0</p>
+</div>
+</div>
+
+<!-- Inicial -->
+<div class="bg-gray-700 p-4 rounded mb-4">
+<h2 class="font-bold mb-2">Saldo inicial</h2>
+<input id="initARS" type="number" placeholder="Pesos" class="w-full p-2 text-black rounded mb-2">
+<input id="initUSD" type="number" placeholder="Dólares" class="w-full p-2 text-black rounded mb-2">
+<button onclick="setInitial()" class="w-full bg-green-500 p-2 rounded">Guardar</button>
+</div>
+
+<!-- Movimiento -->
+<div class="bg-gray-700 p-4 rounded mb-4">
+<h2 class="font-bold mb-2">Agregar movimiento</h2>
+<select id="type" class="w-full p-2 text-black rounded mb-2">
+<option value="ingreso">Ingreso</option>
+<option value="gasto">Gasto</option>
+</select>
+<select id="currency" class="w-full p-2 text-black rounded mb-2">
+<option value="ars">Pesos (ARS)</option>
+<option value="usd">Dólares (USD)</option>
+</select>
+<input id="amount" type="number" placeholder="Monto" class="w-full p-2 text-black rounded mb-2">
+<input id="desc" placeholder="Descripción" class="w-full p-2 text-black rounded mb-2">
+<button onclick="addMove()" class="w-full bg-blue-500 p-2 rounded">Agregar</button>
+</div>
+
+<!-- Historial -->
+<div class="bg-gray-700 p-4 rounded mb-4">
+<h2 class="font-bold mb-2">Historial</h2>
+<ul id="history" class="text-sm"></ul>
+</div>
+
+<!-- Resumen -->
+<div class="bg-gray-900 p-4 rounded text-center">
+<h2 class="font-bold mb-2">Resumen del mes</h2>
+<p id="summary"></p>
+<p id="result" class="text-xl font-bold mt-2"></p>
+</div>
+<div class="bg-gray-900 p-4 rounded text-center mt-4">
+  <h2 class="font-bold mb-2">📊 Ingresos vs Gastos</h2>
+  <canvas id="financeChart"></canvas>
+</div>
+
+</div>
+
+<script>
+let data = JSON.parse(localStorage.getItem("finanzas")) || {
+ars:0, usd:0, movements:[]
+}
+
+function save(){ localStorage.setItem("finanzas", JSON.stringify(data)); }
+
+function setInitial(){
+data.ars = Number(initARS.value);
+data.usd = Number(initUSD.value);
+save(); render();
+}
+
+function addMove(){
+let amt = Number(amount.value);
+let type = document.getElementById("type").value;
+let cur = currency.value;
+let desc = document.getElementById("desc").value;
+
+if(type=="gasto") amt *= -1;
+
+data[cur] += amt;
+data.movements.push({amt,cur,desc,date:new Date().toLocaleDateString()});
+save(); render();
+}
+
+function formatAR(num){
+  return num.toLocaleString("es-AR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+function render(){
+  ars.innerText = "$ " + formatAR(data.ars);
+  usd.innerText = "U$S " + formatAR(data.usd);
+
+
+history.innerHTML="";
+let ingresos=0, gastos=0;
+
+data.movements.forEach(m=>{
+history.innerHTML+=`<li>${m.date} - ${m.desc} (${m.cur.toUpperCase()} ${m.amt})</li>`;
+if(m.amt>0) ingresos+=m.amt; else gastos+=m.amt;
+});
+
+summary.innerText = `Ingresos: $ ${formatAR(ingresos)} | Gastos: $ ${formatAR(Math.abs(gastos))}`;
+result.innerText = ingresos + gastos > 0 ? "🟢 Buen mes" : "🔴 Mal mes";
+}
+
+
+let chart;
+
+function render(){
+  ars.innerText = "$ " + formatAR(data.ars);
+  usd.innerText = "U$S " + formatAR(data.usd);
+
+  history.innerHTML="";
+  let ingresos=0, gastos=0;
+
+  data.movements.forEach(m=>{
+    history.innerHTML+=`<li>${m.date} - ${m.desc} (${m.cur.toUpperCase()} ${formatAR(m.amt)})</li>`;
+    if(m.amt>0) ingresos+=m.amt; else gastos+=Math.abs(m.amt);
+  });
+
+  summary.innerText = `Ingresos: $ ${formatAR(ingresos)} | Gastos: $ ${formatAR(gastos)}`;
+  result.innerText = ingresos - gastos > 0 ? "🟢 Buen mes" : "🔴 Mal mes";
+
+  // 📊 Gráfico
+  if(chart) chart.destroy();
+
+  chart = new Chart(document.getElementById("financeChart"), {
+    type: "bar",
+    data: {
+      labels: ["Ingresos", "Gastos"],
+      datasets: [{
+        data: [ingresos, gastos],
+        backgroundColor: ["#22c55e", "#ef4444"]
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false }},
+      scales: {
+        y: { ticks: { color: "white" }, grid:{color:"#555"} },
+        x: { ticks: { color: "white" } }
+      }
+    }
+  });
+}
+
+</script>
+
+</body>
+</html>
