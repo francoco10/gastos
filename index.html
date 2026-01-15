@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gestor de Finanzas</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -12,12 +13,12 @@
 
 <body class="bg-gradient-to-br from-blue-900 to-gray-900 min-h-screen text-white p-6">
 
-<div class="max-w-4xl mx-auto bg-gray-800 rounded-xl shadow-xl p-6">
+<div class="max-w-4xl mx-auto bg-gray-800 rounded-xl shadow-xl p-4 sm:p-6">
     <div id="auth" class="bg-gray-900 p-4 rounded mb-4 text-center">
   <h2 class="font-bold mb-2">Cuenta</h2>
 
-  <input id="email" type="email" placeholder="Email" class="w-full p-2 mb-2 text-black rounded">
-  <input id="password" type="password" placeholder="Contraseña" class="w-full p-2 mb-2 text-black rounded">
+  <input id="email" type="email" placeholder="Email" class="w-full p-3 mb-2 text-black rounded">
+  <input id="password" type="password" placeholder="Contraseña" class="w-full p-3 mb-2 text-black rounded">
 
   <button onclick="register()" class="bg-green-600 w-full p-2 rounded mb-2">
     Crear cuenta
@@ -55,8 +56,8 @@
 <!-- Inicial -->
 <div class="bg-gray-700 p-4 rounded mb-4">
 <h2 class="font-bold mb-2">Saldo inicial</h2>
-<input id="initARS" type="number" placeholder="Pesos" class="w-full p-2 text-black rounded mb-2">
-<input id="initUSD" type="number" placeholder="Dólares" class="w-full p-2 text-black rounded mb-2">
+<input id="initARS" type="number" placeholder="Pesos" class="w-full p-3 text-black rounded mb-2">
+<input id="initUSD" type="number" placeholder="Dólares" class="w-full p-3 text-black rounded mb-2">
 <button onclick="setInitial()" class="w-full bg-green-500 p-2 rounded">Guardar</button>
 </div>
 
@@ -71,8 +72,8 @@
 <option value="ars">Pesos (ARS)</option>
 <option value="usd">Dólares (USD)</option>
 </select>
-<input id="amount" type="number" placeholder="Monto" class="w-full p-2 text-black rounded mb-2">
-<input id="desc" placeholder="Descripción" class="w-full p-2 text-black rounded mb-2">
+<input id="amount" type="number" placeholder="Monto" class="w-full p-3 text-black rounded mb-2">
+<input id="desc" placeholder="Descripción" class="w-full p-3 text-black rounded mb-2">
 <button onclick="addMove()" class="w-full bg-blue-500 p-2 rounded">Agregar</button>
 </div>
 
@@ -90,7 +91,10 @@
 </div>
 <div class="bg-gray-900 p-4 rounded text-center mt-4">
   <h2 class="font-bold mb-2">📊 Ingresos vs Gastos</h2>
+  <div class="w-full h-64">
   <canvas id="financeChart"></canvas>
+</div>
+
 </div>
 
 </div>
@@ -208,16 +212,21 @@ function render(){
   if(chart) chart.destroy();
 
   chart = new Chart(document.getElementById("financeChart"),{
-    type:"bar",
-    data:{
-      labels:["Ingresos","Gastos"],
-      datasets:[{
-        data:[ingresos,gastos],
-        backgroundColor:["#22c55e","#ef4444"]
-      }]
-    },
-    options:{plugins:{legend:{display:false}}}
-  });
+  type:"bar",
+  data:{
+    labels:["Ingresos","Gastos"],
+    datasets:[{
+      data:[ingresos,gastos],
+      backgroundColor:["#22c55e","#ef4444"]
+    }]
+  },
+  options:{
+    responsive:true,
+    maintainAspectRatio:false,
+    plugins:{legend:{display:false}}
+  }
+});
+
 }
 
 
@@ -236,6 +245,7 @@ sb.auth.getUser().then(({data})=>{
 
 </body>
 </html>
+
 
 
 
