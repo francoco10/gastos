@@ -32,6 +32,12 @@
 
 
 <div id="app" class="hidden">
+    <div class="text-right mb-4">
+  <button onclick="logout()" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded">
+    Cerrar sesión
+  </button>
+</div>
+
 <h1 class="text-3xl font-bold text-center mb-6">💰 Gestor de Finanzas Personales</h1>
 
 <!-- Balance -->
@@ -230,4 +236,5 @@ sb.auth.getUser().then(({data})=>{
 
 </body>
 </html>
+
 
