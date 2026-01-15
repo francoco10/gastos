@@ -6,12 +6,32 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+
+
 </head>
 
 <body class="bg-gradient-to-br from-blue-900 to-gray-900 min-h-screen text-white p-6">
 
 <div class="max-w-4xl mx-auto bg-gray-800 rounded-xl shadow-xl p-6">
+    <div id="auth" class="bg-gray-900 p-4 rounded mb-4 text-center">
+  <h2 class="font-bold mb-2">Cuenta</h2>
 
+  <input id="email" type="email" placeholder="Email" class="w-full p-2 mb-2 text-black rounded">
+  <input id="password" type="password" placeholder="Contraseña" class="w-full p-2 mb-2 text-black rounded">
+
+  <button onclick="register()" class="bg-green-600 w-full p-2 rounded mb-2">
+    Crear cuenta
+  </button>
+
+  <button onclick="login()" class="bg-blue-600 w-full p-2 rounded">
+    Iniciar sesión
+  </button>
+
+  <p id="authStatus" class="text-sm mt-2"></p>
+</div>
+
+
+<div id="app" class="hidden">
 <h1 class="text-3xl font-bold text-center mb-6">💰 Gestor de Finanzas Personales</h1>
 
 <!-- Balance -->
@@ -69,58 +89,99 @@
 
 </div>
 
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <script>
-let data = JSON.parse(localStorage.getItem("finanzas")) || {
-ars:0, usd:0, movements:[]
+const SUPABASE_URL = "https://doefqstczxinchrualpj.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvZWZxc3RjenhpbmNocnVhbHBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0OTY1OTYsImV4cCI6MjA4NDA3MjU5Nn0.BkgHzScYHWZshdCNNvjqEuLWVc9LSy0SoX5UMgYDU1s";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let user = null;
+
+async function register(){
+  const { error } = await sb.auth.signUp({
+    email: email.value,
+    password: password.value
+  });
+
+  authStatus.innerText = error ? error.message : "Cuenta creada. Iniciá sesión.";
 }
 
-function save(){ localStorage.setItem("finanzas", JSON.stringify(data)); }
+async function login(){
+  const { data, error } = await sb.auth.signInWithPassword({
+    email: email.value,
+    password: password.value
+  });
+
+  if(error){
+    authStatus.innerText = error.message;
+  } else {
+    user = data.user;
+    authStatus.innerText = "Sesión iniciada";
+    document.getElementById("auth").classList.add("hidden");
+    document.getElementById("app").classList.remove("hidden");
+    loadData();
+  }
+}
+
+async function logout(){
+  await sb.auth.signOut();
+  location.reload();
+}
+
+
+let data = { ars:0, usd:0, movements:[] };
+let chart;
+
+function formatAR(n){
+  return n.toLocaleString("es-AR",{minimumFractionDigits:2});
+}
 
 function setInitial(){
-data.ars = Number(initARS.value);
-data.usd = Number(initUSD.value);
-save(); render();
+  data.ars = Number(initARS.value) || 0;
+  data.usd = Number(initUSD.value) || 0;
+  render();
 }
 
-function addMove(){
-let amt = Number(amount.value);
-let type = document.getElementById("type").value;
-let cur = currency.value;
-let desc = document.getElementById("desc").value;
+async function addMove(){
+  let amt = Number(amount.value);
+  let type = document.getElementById("type").value;
+  let cur = currency.value;
+  let desc = document.getElementById("desc").value;
 
-if(type=="gasto") amt *= -1;
+  if(type=="gasto") amt *= -1;
 
-data[cur] += amt;
-data.movements.push({amt,cur,desc,date:new Date().toLocaleDateString()});
-save(); render();
+  await sb.from("movements").insert([{
+  amount: amt,
+  currency: cur,
+  description: desc,
+  user_id: user.id
+}]);
+
+  loadData();
 }
 
-function formatAR(num){
-  return num.toLocaleString("es-AR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
+async function loadData(){
+  const { data: rows } = await sb
+  .from("movements")
+  .select("*")
+  .eq("user_id", user.id)
+  .order("date");
+
+
+  data.movements = rows || [];
+  data.ars = 0;
+  data.usd = 0;
+
+  data.movements.forEach(m=>{
+    if(m.currency=="ars") data.ars += m.amount;
+    if(m.currency=="usd") data.usd += m.amount;
   });
+
+  render();
 }
-
-function render(){
-  ars.innerText = "$ " + formatAR(data.ars);
-  usd.innerText = "U$S " + formatAR(data.usd);
-
-
-history.innerHTML="";
-let ingresos=0, gastos=0;
-
-data.movements.forEach(m=>{
-history.innerHTML+=`<li>${m.date} - ${m.desc} (${m.cur.toUpperCase()} ${m.amt})</li>`;
-if(m.amt>0) ingresos+=m.amt; else gastos+=m.amt;
-});
-
-summary.innerText = `Ingresos: $ ${formatAR(ingresos)} | Gastos: $ ${formatAR(Math.abs(gastos))}`;
-result.innerText = ingresos + gastos > 0 ? "🟢 Buen mes" : "🔴 Mal mes";
-}
-
-
-let chart;
 
 function render(){
   ars.innerText = "$ " + formatAR(data.ars);
@@ -130,36 +191,43 @@ function render(){
   let ingresos=0, gastos=0;
 
   data.movements.forEach(m=>{
-    history.innerHTML+=`<li>${m.date} - ${m.desc} (${m.cur.toUpperCase()} ${formatAR(m.amt)})</li>`;
-    if(m.amt>0) ingresos+=m.amt; else gastos+=Math.abs(m.amt);
+    history.innerHTML += `<li>${new Date(m.date).toLocaleDateString()} - ${m.description} (${m.currency.toUpperCase()} ${formatAR(m.amount)})</li>`;
+    if(m.amount>0) ingresos+=m.amount;
+    else gastos+=Math.abs(m.amount);
   });
 
   summary.innerText = `Ingresos: $ ${formatAR(ingresos)} | Gastos: $ ${formatAR(gastos)}`;
   result.innerText = ingresos - gastos > 0 ? "🟢 Buen mes" : "🔴 Mal mes";
 
-  // 📊 Gráfico
   if(chart) chart.destroy();
 
-  chart = new Chart(document.getElementById("financeChart"), {
-    type: "bar",
-    data: {
-      labels: ["Ingresos", "Gastos"],
-      datasets: [{
-        data: [ingresos, gastos],
-        backgroundColor: ["#22c55e", "#ef4444"]
+  chart = new Chart(document.getElementById("financeChart"),{
+    type:"bar",
+    data:{
+      labels:["Ingresos","Gastos"],
+      datasets:[{
+        data:[ingresos,gastos],
+        backgroundColor:["#22c55e","#ef4444"]
       }]
     },
-    options: {
-      plugins: { legend: { display: false }},
-      scales: {
-        y: { ticks: { color: "white" }, grid:{color:"#555"} },
-        x: { ticks: { color: "white" } }
-      }
-    }
+    options:{plugins:{legend:{display:false}}}
   });
 }
 
+
+
+sb.auth.getUser().then(({data})=>{
+  if(data.user){
+    user = data.user;
+    document.getElementById("auth").classList.add("hidden");
+    document.getElementById("app").classList.remove("hidden");
+    loadData();
+  }
+});
+
 </script>
+
 
 </body>
 </html>
+
